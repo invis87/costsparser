@@ -12,7 +12,7 @@ Create file that contains some costs with date. For example:
 	--- 06.10.2013
 	-2000 : party
 	--- 11.10.2013
-	-400 : book"
+	-400 : book
 
 Then change "costsFile" constant and evaluate core.clj.
 Now you can check how much you spend for fastfood, like that:
