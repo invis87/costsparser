@@ -22,6 +22,6 @@ Now you can check how much you spend for fastfood, like that:
 _amount_ can take _after_ date or _after_ and _before_ dates, like that:
 
 
-	(amount (costsFor :fastfood) "02.10.2013" "04.10.2013")
+	(amount (costsFor :fastfood "02.10.2013" "04.10.2013"))
 
 There will be Incanter graphs in future.
