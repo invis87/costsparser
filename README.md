@@ -24,4 +24,7 @@ _amount_ can take _after_ date or _after_ and _before_ dates, like that:
 
 	(amount (costsFor :fastfood "02.10.2013" "04.10.2013"))
 
-There will be Incanter graphs in future.
+You can create bar-charts for any group function you want:
+
+	(barChart (costsForAll) #(tCore/month (:when %)))
+	(barChart (costsForAll) #(:type %))
