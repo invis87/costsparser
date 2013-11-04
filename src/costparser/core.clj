@@ -2,7 +2,9 @@
   (:require [clojure.java.io :as io :only (file readre)]
             [clj-time.format :as tFormat :only (formatter parse)]
             [clj-time.core :as tCore]
-            [clojure.walk :refer :all]))
+            [incanter.core :as incanter]
+            [incanter.stats :as stats]
+            [incanter.charts :as charts]))
 
 (def costsFile "path to your costs file")
 
@@ -10,53 +12,56 @@
 (def df (tFormat/formatter "dd.MM.yyyy"))
 (defn mytime [str] (tFormat/parse df str))
 
-(defrecord cost [when amount])
 
-(defn hashFromStr [array]
-  (keywordize-keys (apply hash-map
-                          (update-in (into [] (reverse (map #(.trim %) array)))
-                                     [1] #(Integer/parseInt %)))))
+(defn hashFromStr [str]
+  (let [type-price (map #(.trim %) (.split str ":"))]
+    {:type (keyword (second type-price)) :amount (Integer/parseInt (first type-price))}))
 
-(defn parseLines [in]
+(defn- parseTimeStr [timeStr]
+  (mytime (.trim (.substring timeStr (count tSep)))))
+
+(defn- parseCostLine [date costStr]
+  (assoc (hashFromStr costStr) :when date))
+
+(defn- openTimeArr [timeCostsArray]
+  (let [time (first timeCostsArray)
+        costs (second timeCostsArray)]
+    (map #(parseCostLine time %) costs)))
+
+(defn- intoTimeCostsArray [lineSeq]
   (reduce (fn [result line]
-      (if (.startsWith line tSep)
-        (let [d (mytime (.trim (.substring line 3)))]
-          (conj result [d {}]))
-          (let [pi (hashFromStr (.split line ":"))
-            [date pis] (peek result)]
-            (conj (pop result)
-              [date
-              (conj pis pi)]))))
-    []  in))
+            (if (.startsWith line tSep)
+              (conj result [(parseTimeStr line) []])
+              (let [[date costs] (peek result)]
+                (conj (pop result) [date (conj costs line)]))))
+          [] lineSeq))
 
-(defn pricesDatWithReduce
-  "read prices data from a dat file, using reduce which is amazing"
-  [path]
+(defn costs [lineSeq] (apply concat (map openTimeArr
+    (intoTimeCostsArray lineSeq))))
+
+(defn costsForFile [path]
   (with-open [in (io/reader (io/file path))]
-    (parseLines (line-seq in))
-    ))
+    (costs (line-seq in))))
 
-(defn amount
-  ([arr] (apply + (map #(:amount %) arr)))
-  ([arr after]
-   (amount (filter #(tCore/after? (:when %) (mytime after)) arr)))
-  ([arr after before]
-   (amount (filter #(tCore/before? (:when %) (mytime before)) arr) after))
-  )
+(defn costsFor
+  "Compute costs for costsFile filename"
+  ([key] (filter #(zero? (compare (:type %) key))
+          (costsForFile costsFile)))
+  ([key after] (filter #(tCore/after? (:when %) (mytime after)) (costsFor key)))
+  ([key after before] (filter #(tCore/before? (:when %) (mytime before)) (costsFor key after))))
 
-(defn costsFor [key] (reduce (fn [result item]
-                         (if-not (nil? (key (last item)))
-                           (let [when (first item)
-                                 amount (key (last item))]
-                             (conj result (cost. when amount)))
-                           result))
-                       [] (pricesDatWithReduce costsFile)))
+(defn costsForAll [] (costsForFile costsFile))
 
-(defn allTypes [] (reduce (fn [result item]
-                           (let [when (first item)]
-                             (into [] (concat result
-                               (reduce (fn [res it]
-                                 (conj res (cost. when it)))
-                                   [] (vals (second item)))
-                           ))))
-                       [] (pricesDatWithReduce costsFile)))
+(defn amount [arr]
+  (apply + (map #(:amount %) arr)))
+
+(defn groupByFunc [costs func]
+  (apply merge
+         (map (fn [groupElement] (hash-map (first groupElement) (amount (second groupElement))))
+              (group-by func costs))))
+
+(defn barChart [costs func]
+ (let [groups (groupByFunc costs func)]
+  (incanter/view (charts/bar-chart (keys groups) (map #(* -1 %) (vals groups))))))
+
+(barChart (costsForAll) #(tCore/month (:when %)))

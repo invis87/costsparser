@@ -10,12 +10,16 @@
 (expect false (tCore/after? (mytime "11.10.2013") (mytime "11.10.2013")))
 
 ;; Test string parsing function
-(expect -500 (:test (hashFromStr ["-500" "test"])))
-(expect 250 (:test (hashFromStr ["+250" "test"])))
+(expect -500 (:amount (hashFromStr "-500 : test")))
+(expect 250 (:amount (hashFromStr "+250 : test")))
 
 ;; Test parsing function
-(expect -220 (:test (last (first (parseLines ["--- 02.10.2013" "-220 : test"])))))
-(expect true (= (mytime "02.10.2013") (first (first (parseLines ["--- 02.10.2013" "-220 : test"])))))
+(def testStr "--- 02.10.2013
+  -220 : test")
+(expect -220 (:amount (first (costs (.split testStr "\n")))))
+
+
+
 
 
 
